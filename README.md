@@ -46,6 +46,18 @@ For Linux users running the game via Steam/Proton:
 4. Wait 30-60 seconds for the memory scan to complete
 5. **`data.json`** will be created in the current directory (or home directory if permissions fail)
 
+#### Linux desktop app
+
+There is also a small GTK app that shows the detected game process and lets you save `data.json` with a file dialog:
+
+```bash
+sudo apt install python3-gi gir1.2-gtk-3.0 python3-msgpack   # Debian/Ubuntu/Mint
+python3 py/linux_gui.py
+python3 py/linux_gui.py --install-launcher   # optional: add "UmaExtractor" to your app menu
+```
+
+Open the Veteran List in-game, click **Extract**, then **Save data.json…**. Don't run the app with sudo. Wine usually lets your own user read the game's memory; if it doesn't, the app asks for your password through `pkexec`.
+
 **Note:** Root access is required because the script needs to read process memory from `/proc/<pid>/mem`. The script automatically detects the game process running under Proton/Wine.
 
 ## Output Format
