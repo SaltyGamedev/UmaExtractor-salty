@@ -48,15 +48,15 @@ For Linux users running the game via Steam/Proton:
 
 #### Linux desktop app
 
-There is also a small GTK app that shows the detected game process and lets you save `data.json` with a file dialog:
+There is also a small GTK app that shows the detected game process and saves timestamped exports to `exports/`:
 
 ```bash
 sudo apt install python3-gi gir1.2-gtk-3.0 python3-msgpack   # Debian/Ubuntu/Mint
 python3 py/linux_gui.py
-python3 py/linux_gui.py --install-launcher   # optional: add "UmaExtractor" to your app menu
+python3 py/linux_gui.py --install-launcher   # optional: add "UmaExtractor" to your app menu and desktop
 ```
 
-Open the Veteran List in-game, click **Extract**, then **Save data.json…**. Don't run the app with sudo. Wine usually lets your own user read the game's memory; if it doesn't, the app asks for your password through `pkexec`.
+Open the Veteran List in-game and click **Extract**; the result is saved as `exports/data_<timestamp>.json`. Don't run the app with sudo. Wine usually lets your own user read the game's memory; if it doesn't, the app asks for your password through `pkexec`.
 
 **Note:** Root access is required because the script needs to read process memory from `/proc/<pid>/mem`. The script automatically detects the game process running under Proton/Wine.
 

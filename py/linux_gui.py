@@ -1,11 +1,11 @@
 """Small GTK app for the Linux extractor.
 
-Shows the detected game process, runs the memory scan through pkexec
-(graphical password prompt) and lets you save the result as data.json.
+Shows the detected game process, runs the memory scan and saves the result
+to exports/data_<timestamp>.json in the project folder.
 
 Usage:
     python3 linux_gui.py                     # start the app
-    python3 linux_gui.py --install-launcher  # add it to your applications menu
+    python3 linux_gui.py --install-launcher  # add it to your app menu and desktop
 
 Requires PyGObject (GTK 3) and msgpack, e.g. on Debian/Ubuntu/Mint:
     sudo apt install python3-gi gir1.2-gtk-3.0 python3-msgpack
@@ -14,18 +14,21 @@ import os
 import subprocess
 import sys
 import threading
+from datetime import datetime
 
 import gi
 
 gi.require_version("Gtk", "3.0")
-from gi.repository import GLib, Gtk  # noqa: E402
+from gi.repository import Gio, GLib, Gtk  # noqa: E402
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import linux_extract  # noqa: E402
 
 APP_TITLE = "UmaExtractor"
 HELPER = os.path.join(os.path.dirname(os.path.abspath(__file__)), "linux_extract.py")
-ICON = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "assets", "umaguide_logo.ico")
+PROJECT_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+ICON = os.path.join(PROJECT_DIR, "assets", "umaguide_logo.png")
+EXPORT_DIR = os.path.join(PROJECT_DIR, "exports")
 
 HELPER_ERRORS = {
     2: "Game is not running.",
@@ -52,7 +55,6 @@ class ExtractorWindow(Gtk.ApplicationWindow):
             except GLib.Error:
                 pass
 
-        self.characters = None
         self.extracting = False
 
         box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=10)
@@ -83,13 +85,12 @@ class ExtractorWindow(Gtk.ApplicationWindow):
         self.extract_button = Gtk.Button(label="Extract")
         self.extract_button.get_style_context().add_class("suggested-action")
         self.extract_button.connect("clicked", self.on_extract)
-        self.save_button = Gtk.Button(label="Save data.json…")
-        self.save_button.set_sensitive(False)
-        self.save_button.connect("clicked", self.on_save)
+        self.folder_button = Gtk.Button(label="Open exports folder")
+        self.folder_button.connect("clicked", self.on_open_folder)
         self.spinner = Gtk.Spinner()
         buttons.pack_start(self.extract_button, False, False, 0)
-        buttons.pack_start(self.save_button, False, False, 0)
         buttons.pack_start(self.spinner, False, False, 0)
+        buttons.pack_end(self.folder_button, False, False, 0)
         box.pack_start(buttons, False, False, 0)
 
         self.result_label = Gtk.Label(xalign=0)
@@ -106,6 +107,8 @@ class ExtractorWindow(Gtk.ApplicationWindow):
         scrolled.add(self.log_view)
         expander.add(scrolled)
         box.pack_start(expander, True, True, 0)
+
+        self.show_all()
 
         self.game = None
         self.refresh_process()
@@ -197,57 +200,54 @@ class ExtractorWindow(Gtk.ApplicationWindow):
             self.result_label.set_markup(f"<span foreground='#c01c28'>{GLib.markup_escape_text(error)}</span>")
             return
 
-        self.characters = characters
-        self.save_button.set_sensitive(True)
         self.log(f"[OK] Parsed {len(characters)} characters (viewer IDs removed)")
-        self.result_label.set_markup(f"<b>{len(characters)}</b> veteran umas extracted. Click Save to write data.json.")
+        path = os.path.join(EXPORT_DIR, datetime.now().strftime("data_%Y-%m-%d_%H-%M-%S.json"))
+        try:
+            os.makedirs(EXPORT_DIR, exist_ok=True)
+            linux_extract.save_characters(characters, path)
+        except OSError as e:
+            self.log(f"[X] Could not save: {e}")
+            self.result_label.set_markup(
+                f"<span foreground='#c01c28'>Could not save: {GLib.markup_escape_text(str(e))}</span>"
+            )
+            return
 
-    # -- saving ------------------------------------------------------------
-
-    def on_save(self, _button):
-        dialog = Gtk.FileChooserNative(
-            title="Save data.json",
-            transient_for=self,
-            action=Gtk.FileChooserAction.SAVE,
-            accept_label="Save",
+        self.log(f"[OK] Saved to {path}")
+        self.result_label.set_markup(
+            f"Saved <b>{len(characters)}</b> veteran umas to <b>{GLib.markup_escape_text(os.path.relpath(path, PROJECT_DIR))}</b>"
         )
-        dialog.set_do_overwrite_confirmation(True)
-        dialog.set_current_name("data.json")
-        documents = GLib.get_user_special_dir(GLib.UserDirectory.DIRECTORY_DOCUMENTS)
-        dialog.set_current_folder(documents or os.path.expanduser("~"))
 
-        if dialog.run() == Gtk.ResponseType.ACCEPT:
-            path = dialog.get_filename()
-            try:
-                linux_extract.save_characters(self.characters, path)
-            except OSError as e:
-                self.result_label.set_markup(
-                    f"<span foreground='#c01c28'>Could not save: {GLib.markup_escape_text(str(e))}</span>"
-                )
-            else:
-                self.log(f"[OK] Saved to {path}")
-                self.result_label.set_markup(
-                    f"Saved {len(self.characters)} umas to <b>{GLib.markup_escape_text(path)}</b>"
-                )
-        dialog.destroy()
+    def on_open_folder(self, _button):
+        os.makedirs(EXPORT_DIR, exist_ok=True)
+        Gio.AppInfo.launch_default_for_uri(GLib.filename_to_uri(EXPORT_DIR), None)
 
 
 def install_launcher():
     apps_dir = os.path.join(GLib.get_user_data_dir(), "applications")
     os.makedirs(apps_dir, exist_ok=True)
-    path = os.path.join(apps_dir, "uma-extractor.desktop")
-    with open(path, "w", encoding="utf-8") as f:
-        f.write(
-            "[Desktop Entry]\n"
-            "Type=Application\n"
-            f"Name={APP_TITLE}\n"
-            "Comment=Extract veteran Uma Musume data to data.json\n"
-            f'Exec="{sys.executable}" "{os.path.abspath(__file__)}"\n'
-            f"Icon={ICON}\n"
-            "Terminal=false\n"
-            "Categories=Utility;Game;\n"
-        )
-    print(f"Installed launcher: {path}")
+    entry = (
+        "[Desktop Entry]\n"
+        "Type=Application\n"
+        f"Name={APP_TITLE}\n"
+        "Comment=Extract veteran Uma Musume data to data.json\n"
+        f'Exec="{sys.executable}" "{os.path.abspath(__file__)}"\n'
+        f"Icon={ICON}\n"
+        "Terminal=false\n"
+        "Categories=Utility;\n"
+    )
+
+    paths = [os.path.join(apps_dir, "uma-extractor.desktop")]
+    desktop_dir = GLib.get_user_special_dir(GLib.UserDirectory.DIRECTORY_DESKTOP)
+    if desktop_dir and os.path.isdir(desktop_dir):
+        paths.append(os.path.join(desktop_dir, "uma-extractor.desktop"))
+
+    for path in paths:
+        with open(path, "w", encoding="utf-8") as f:
+            f.write(entry)
+        os.chmod(path, 0o755)
+        # Mark as trusted so file managers launch it without a warning
+        subprocess.run(["gio", "set", path, "metadata::trusted", "true"], stderr=subprocess.DEVNULL)
+        print(f"Installed launcher: {path}")
 
 
 def main():
