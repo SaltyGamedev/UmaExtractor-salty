@@ -1,90 +1,78 @@
-# UmaExtractor (Updated Umadump Fork)
+# UmaExtractor (Salty's Linux fork)
 
-> **Note:** This is an updated fork of the original umadump project. The original version stopped working due to game updates. This version has been rewritten with a more resilient memory scanning approach.
+**Repository:** https://github.com/SaltyGamedev/UmaExtractor-salty
 
-Dump your veteran Uma Musume character list into a JSON file for easy filtering and analysis.
+Dump your veteran Uma Musume character list (stats, skills, aptitudes and inheritance factors/sparks) into a JSON file you can load into web tools for filtering and breeding.
 
-Extract all your trained characters with their stats, skills, and **inheritance factors** (sparks) to find the perfect parents for breeding.
+This fork adds a small **Linux desktop app**, so on Steam/Proton you don't have to use the terminal or `sudo`.
 
 ## Features
 
-- Extracts all veteran character data (stats, skills, factors)
-- No installation required (standalone executable)
-- Works with current game version (as of Jan 2026)
-- Outputs clean JSON format for web tools
+- **Desktop app (GTK):** a small window, no command line needed
+- **Live process detection:** shows the game process it attaches to (`UmamusumePrettyDerby.exe` and its PID) and refreshes every 2 seconds
+- **One-click extraction:** scans the game's memory in the background and shows a spinner and a log
+- **Timestamped exports:** each extraction is saved automatically as a new file, so older exports are kept
+- **No root in most cases:** Wine lets your own user read the game's memory. If your system blocks this, the app asks for your password through `pkexec`.
+- **Privacy:** `viewer_id` and `owner_viewer_id` are removed before saving
+- **Menu and desktop launcher:** launch it like any other app
+- **Read-only:** the app only reads memory and never modifies the game
+
+## Install (Linux)
+
+Requirements: Python 3.10+, GTK 3 bindings (PyGObject) and `msgpack`. On Debian, Ubuntu or Linux Mint:
+
+```bash
+sudo apt install python3-gi gir1.2-gtk-3.0 python3-msgpack
+git clone https://github.com/SaltyGamedev/UmaExtractor-salty.git
+cd UmaExtractor-salty
+python3 py/linux_gui.py --install-launcher
+```
+
+The last command adds **UmaExtractor** to your application menu and puts a shortcut with the logo on your desktop. If you move the folder later, run it again.
 
 ## Usage
 
-1. **Open Umamusume Pretty Derby** and navigate to the **Veteran List** page (Enhance → List)
-2. **Run `umaextractor.exe`** (double-click or run from command line)
-3. Wait 10-20 seconds for the scan to complete
-4. **`data.json`** will be created in the same folder with all your character data
+1. Launch **Uma Musume Pretty Derby** through Steam.
+2. In the game, open **Enhance → List** (Veteran List) and wait for it to load.
+3. Open **UmaExtractor** from the menu or desktop. The *Game process* box should show `UmamusumePrettyDerby.exe` with its PID.
+4. Click **Extract**. The scan takes about 30–60 seconds.
+5. When it finishes, the file name is shown. Click **Open exports folder** to see it.
 
-### Alternative: Python Script
+Don't start the app with `sudo`. If extraction says *No veteran data found*, make sure the Veteran List is open and fully loaded, then try again.
 
-If you have Python 3.10+ with `frida` and `msgpack` installed:
-```bash
-python py/extract_umas.py
-```
+### Command line (optional)
 
-### Linux (Steam/Proton)
-
-For Linux users running the game via Steam/Proton:
-
-**Requirements:**
-- Python 3.10 or higher
-- `msgpack` package: `pip install msgpack`
-- Root permissions (required to read process memory)
-
-**Steps:**
-1. **Launch Uma Musume Pretty Derby** via Steam and navigate to the **Veteran List** page (Enhance → List)
-2. Wait for the page to fully load
-3. **Run the Linux extraction script with sudo:**
-   ```bash
-   sudo python3 py/linux_extract.py
-   ```
-4. Wait 30-60 seconds for the memory scan to complete
-5. **`data.json`** will be created in the current directory (or home directory if permissions fail)
-
-#### Linux desktop app
-
-There is also a small GTK app that shows the detected game process and saves timestamped exports to `exports/`:
+The original script still works and writes `data.json` to the current folder:
 
 ```bash
-sudo apt install python3-gi gir1.2-gtk-3.0 python3-msgpack   # Debian/Ubuntu/Mint
-python3 py/linux_gui.py
-python3 py/linux_gui.py --install-launcher   # optional: add "UmaExtractor" to your app menu and desktop
+python3 py/linux_extract.py        # add sudo only if you get "Permission denied"
 ```
 
-Open the Veteran List in-game and click **Extract**; the result is saved as `exports/data_<timestamp>.json`. Don't run the app with sudo. Wine usually lets your own user read the game's memory; if it doesn't, the app asks for your password through `pkexec`.
+## Output
 
-**Note:** Root access is required because the script needs to read process memory from `/proc/<pid>/mem`. The script automatically detects the game process running under Proton/Wine.
+**Changed in this fork:** the desktop app saves to `exports/data_<YYYY-MM-DD_HH-MM-SS>.json` in the project folder instead of a single `data.json`. Each run creates a new file, and `exports/` is ignored by git. The command-line script still writes `data.json`.
 
-## Output Format
+Each file contains a JSON array with one object per veteran character, including:
 
-The generated `data.json` contains an array of character objects with fields including:
-- `card_id`, `chara_id` - Character identifiers
-- `speed`, `stamina`, `power`, `guts`, `wiz` - Stats
-- `factor_id_array` - Inheritance factors/sparks
-- `skill_array` - Learned skills
-- `proper_distance_*`, `proper_ground_*` - Aptitudes
-- And many more fields for detailed analysis
+- `card_id`, `chara_id`: character identifiers
+- `speed`, `stamina`, `power`, `guts`, `wiz`: stats
+- `factor_id_array`: inheritance factors (sparks)
+- `skill_array`: learned skills
+- `proper_distance_*`, `proper_ground_*`: aptitudes
+- and many more fields
 
-A sample `data.json` is included in the project root.
+`viewer_id` and `owner_viewer_id` are removed. A sample `data.json` is included in the project root.
 
-## Is This Bannable?
+## Is this bannable?
 
-The program only reads game memory - it doesn't modify anything. The game currently has no anti-cheat that detects memory reading. Use at your own discretion.
-
-## Technical Details
-
-This updated version uses improved memory pattern matching that:
-- Only searches for the character array marker
-- Doesn't rely on adjacent memory structures
-- Auto-detects data boundaries using msgpack parsing
-- More resilient to game updates
+The tool only reads game memory and doesn't modify anything. The game currently has no anti-cheat that detects memory reading. Use at your own discretion.
 
 ## Credits
 
-- Original umadump concept and implementation
-- Updated by community members to work with current game version (2026)
+This fork builds on the work of others:
+
+- **umadump**: the original concept and implementation
+- **[xancia/UmaExtractor](https://github.com/xancia/UmaExtractor)**: the updated fork with the resilient memory scan that this fork is based on, including the Windows executable and the Frida script. Thanks to xancia (Cuong Ma), Ivan Nikitin, wugerworks (Linux extraction fixes), cBachoo and the other contributors.
+- **SaltyGamedev**: the Linux desktop app, launcher and timestamped exports in this fork
+
+Windows users should use the upstream [xancia/UmaExtractor](https://github.com/xancia/UmaExtractor) release.
