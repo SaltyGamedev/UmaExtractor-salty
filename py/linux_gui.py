@@ -14,7 +14,6 @@ import os
 import subprocess
 import sys
 import threading
-from datetime import datetime
 
 import gi
 
@@ -23,6 +22,7 @@ from gi.repository import Gio, GLib, Gtk  # noqa: E402
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import linux_extract  # noqa: E402
+import veteran_scan  # noqa: E402
 
 APP_TITLE = "UmaExtractor"
 HELPER = os.path.join(os.path.dirname(os.path.abspath(__file__)), "linux_extract.py")
@@ -201,10 +201,8 @@ class ExtractorWindow(Gtk.ApplicationWindow):
             return
 
         self.log(f"[OK] Parsed {len(characters)} characters (viewer IDs removed)")
-        path = os.path.join(EXPORT_DIR, datetime.now().strftime("data_%Y-%m-%d_%H-%M-%S.json"))
         try:
-            os.makedirs(EXPORT_DIR, exist_ok=True)
-            linux_extract.save_characters(characters, path)
+            path = veteran_scan.save_export(characters, EXPORT_DIR)
         except OSError as e:
             self.log(f"[X] Could not save: {e}")
             self.result_label.set_markup(

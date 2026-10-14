@@ -1,20 +1,20 @@
-# UmaExtractor (Salty's Linux fork)
+# UmaExtractor (Salty's fork)
 
 **Repository:** https://github.com/SaltyGamedev/UmaExtractor-salty
 
 Dump your veteran Uma Musume character list (stats, skills, aptitudes and inheritance factors/sparks) into a JSON file you can load into web tools for filtering and breeding.
 
-This fork adds a small **Linux desktop app**, so on Steam/Proton you don't have to use the terminal or `sudo`.
+This fork adds a small **desktop app for Linux and Windows**. Both scan the game's memory the same way, so on Steam/Proton you don't have to use the terminal or `sudo`, and on Windows nothing is injected into the game (no Frida).
 
 ## Features
 
-- **Desktop app (GTK):** a small window, no command line needed
+- **Desktop app:** a small window, no command line needed (GTK on Linux, Tk on Windows)
 - **Live process detection:** shows the game process it attaches to (`UmamusumePrettyDerby.exe` and its PID) and refreshes every 2 seconds
 - **One-click extraction:** scans the game's memory in the background and shows a spinner and a log
 - **Timestamped exports:** each extraction is saved automatically as a new file, so older exports are kept
-- **No root in most cases:** Wine lets your own user read the game's memory. If your system blocks this, the app asks for your password through `pkexec`.
+- **No root/admin in most cases:** Wine lets your own user read the game's memory. If your system blocks this, the app asks for your password through `pkexec`. On Windows, if access is denied (e.g. the game runs as administrator), the app offers to restart as administrator.
 - **Privacy:** `viewer_id` and `owner_viewer_id` are removed before saving
-- **Menu and desktop launcher:** launch it like any other app
+- **Menu and desktop launcher (Linux):** launch it like any other app
 - **Read-only:** the app only reads memory and never modifies the game
 
 ## Install (Linux)
@@ -40,12 +40,24 @@ The last command adds **UmaExtractor** to your application menu and puts a short
 
 Don't start the app with `sudo`. If extraction says *No veteran data found*, make sure the Veteran List is open and fully loaded, then try again.
 
+## Install and use (Windows)
+
+Run `UmaExtractor.exe` from a release, or from source with Python 3.10+:
+
+```bat
+pip install msgpack
+python py\extract_umas.py
+```
+
+The window works the same as on Linux: it shows `UmamusumePrettyDerby.exe` with its PID once the game runs, **Extract** scans the game's memory, and **Open exports folder** shows the result. Exports go to an `exports` folder next to `UmaExtractor.exe` (or in the project folder when run from source). If that folder isn't writable, they go to `Documents\UmaExtractor\exports`.
+
 ### Command line (optional)
 
 The original script still works and writes `data.json` to the current folder:
 
 ```bash
-python3 py/linux_extract.py        # add sudo only if you get "Permission denied"
+python3 py/linux_extract.py        # Linux; add sudo only if you get "Permission denied"
+python py\extract_umas.py --cli    # Windows
 ```
 
 ## Output
@@ -73,6 +85,12 @@ This fork builds on the work of others:
 
 - **umadump**: the original concept and implementation
 - **[xancia/UmaExtractor](https://github.com/xancia/UmaExtractor)**: the updated fork with the resilient memory scan that this fork is based on, including the Windows executable and the Frida script. Thanks to xancia (Cuong Ma), Ivan Nikitin, wugerworks (Linux extraction fixes), cBachoo and the other contributors.
-- **SaltyGamedev**: the Linux desktop app, launcher and timestamped exports in this fork
+- **SaltyGamedev**: the Linux and Windows desktop apps, launcher and timestamped exports in this fork
 
-Windows users should use the upstream [xancia/UmaExtractor](https://github.com/xancia/UmaExtractor) release.
+## Development
+
+Tests (standard library only; the Linux end-to-end test needs `msgpack`):
+
+```bash
+python3 -m unittest discover -s py/tests
+```
