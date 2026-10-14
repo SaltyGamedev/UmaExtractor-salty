@@ -159,15 +159,23 @@ def read_memory_regions(handle):
     return filter_regions(all_regions), len(all_regions)
 
 
-def read_region(handle, region):
-    """Read a whole region, or return None if it can't be read."""
+def read_region(handle, region, stats=None):
+    """Read a whole region, or return None if it can't be read.
+
+    stats, if given, counts "ok" and "failed" reads and the last Win32 error.
+    """
     buf = bytearray(region["size"])
     c_buf = (ctypes.c_char * len(buf)).from_buffer(buf)
     read = ctypes.c_size_t(0)
     ok = kernel32().ReadProcessMemory(handle, region["start"], c_buf, len(buf), ctypes.byref(read))
     del c_buf
     if not ok or read.value != len(buf):
+        if stats is not None:
+            stats["failed"] += 1
+            stats["last_error"] = ctypes.get_last_error()
         return None
+    if stats is not None:
+        stats["ok"] += 1
     return buf
 
 
@@ -183,7 +191,15 @@ def scan_for_veteran_data(pid, log=print, progress=None):
         log("Reading process memory map...")
         memory_regions, total = read_memory_regions(handle)
         log(f"Scanning {len(memory_regions)} memory regions (filtered from {total})...")
-        return scan_regions(memory_regions, lambda r: read_region(handle, r), log, progress)
+        stats = {"ok": 0, "failed": 0, "last_error": 0}
+        result = scan_regions(
+            memory_regions, lambda r: read_region(handle, r, stats), log, progress
+        )
+        log(
+            f"Read {stats['ok']} regions OK, {stats['failed']} failed"
+            + (f" (last Win32 error: {stats['last_error']})" if stats["failed"] else "")
+        )
+        return result
     finally:
         kernel32().CloseHandle(handle)
 
